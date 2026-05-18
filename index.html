@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Task Entry Notebook — A lightweight task management app powered by Supabase. Add, complete, and delete tasks effortlessly." />
+  <title>Task Entry Notebook</title>
+
+  <!-- Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ===================== CSS RESET & VARIABLES ===================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0f0f1a;
+      --bg-card: rgba(255, 255, 255, 0.04);
+      --bg-card-hover: rgba(255, 255, 255, 0.07);
+      --bg-input: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(139, 92, 246, 0.5);
+      --text-primary: #f1f1f4;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent: #8b5cf6;
+      --accent-hover: #a78bfa;
+      --accent-glow: rgba(139, 92, 246, 0.25);
+      --danger: #ef4444;
+      --danger-hover: #f87171;
+      --success: #22c55e;
+      --gradient-1: linear-gradient(135deg, #8b5cf6, #ec4899);
+      --gradient-2: linear-gradient(135deg, #6366f1, #8b5cf6);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
+      --shadow-md: 0 8px 32px rgba(0,0,0,0.3);
+      --shadow-glow: 0 0 30px rgba(139,92,246,0.15);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px 80px;
+      overflow-x: hidden;
+    }
+
+    /* Animated background blobs */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.35;
+      z-index: -1;
+      animation: floatBlob 18s ease-in-out infinite alternate;
+    }
+    body::before {
+      width: 500px; height: 500px;
+      background: #8b5cf6;
+      top: -120px; left: -100px;
+    }
+    body::after {
+      width: 400px; height: 400px;
+      background: #ec4899;
+      bottom: -80px; right: -80px;
+      animation-delay: -9s;
+    }
+    @keyframes floatBlob {
+      0%   { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(60px, 40px) scale(1.15); }
+    }
+
+    /* ===================== CONTAINER ===================== */
+    .app {
+      width: 100%;
+      max-width: 620px;
+      animation: fadeUp 0.6s ease-out;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===================== HEADER ===================== */
+    .header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .header h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      background: var(--gradient-1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+    }
+    .header p {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      margin-top: 6px;
+    }
+
+    /* ===================== INPUT AREA ===================== */
+    .input-area {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .input-area input {
+      flex: 1;
+      padding: 14px 18px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      background: var(--bg-input);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      outline: none;
+      transition: border var(--transition), box-shadow var(--transition);
+    }
+    .input-area input::placeholder { color: var(--text-muted); }
+    .input-area input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .btn-add {
+      padding: 14px 26px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: inherit;
+      background: var(--gradient-2);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: transform var(--transition), box-shadow var(--transition);
+      white-space: nowrap;
+    }
+    .btn-add:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-glow);
+    }
+    .btn-add:active { transform: scale(0.97); }
+    .btn-add:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ===================== TOOLBAR (Filters + Count) ===================== */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .filters {
+      display: flex;
+      gap: 6px;
+    }
+    .filter-btn {
+      padding: 7px 16px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      font-family: inherit;
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: 50px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .filter-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+    .filter-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .task-count {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .task-count span { color: var(--accent-hover); font-weight: 700; }
+
+    /* ===================== TASK LIST ===================== */
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Individual task card */
+    .task-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      transition: background var(--transition), border-color var(--transition), transform var(--transition);
+      animation: slideIn 0.35s ease-out;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .task-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(255,255,255,0.12);
+    }
+
+    /* Custom checkbox */
+    .task-check {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      border: 2px solid var(--text-muted);
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      transition: all var(--transition);
+    }
+    .task-check:checked {
+      background: var(--success);
+      border-color: var(--success);
+    }
+    .task-check:checked::after {
+      content: '✓';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .task-text {
+      flex: 1;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      word-break: break-word;
+      transition: all var(--transition);
+    }
+    .task-card.done .task-text {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+
+    .task-date {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .btn-delete {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      font-family: inherit;
+      background: transparent;
+      border: 1.5px solid var(--danger);
+      border-radius: var(--radius-sm);
+      color: var(--danger);
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .btn-delete:hover {
+      background: var(--danger);
+      color: #fff;
+      transform: scale(1.05);
+    }
+
+    /* ===================== EMPTY STATE ===================== */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.95rem; }
+
+    /* ===================== TOAST ===================== */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      padding: 12px 24px;
+      background: rgba(30, 30, 50, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      font-family: inherit;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      transition: all 0.4s ease;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ===================== LOADING SPINNER ===================== */
+    .spinner {
+      display: flex;
+      justify-content: center;
+      padding: 40px;
+    }
+    .spinner::after {
+      content: '';
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===================== RESPONSIVE ===================== */
+    @media (max-width: 500px) {
+      .header h1 { font-size: 1.8rem; }
+      .input-area { flex-direction: column; }
+      .btn-add { width: 100%; }
+      .task-date { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Set data-api to your Render backend URL -->
+  <div class="app" id="appRoot" data-api="https://your-render-app.onrender.com">
+    <!-- ===== HEADER ===== -->
+    <header class="header">
+      <h1>📝 Task Notebook</h1>
+      <p>Stay organized — add, complete & manage your tasks</p>
+    </header>
+
+    <!-- ===== INPUT AREA ===== -->
+    <div class="input-area">
+      <input type="text" id="taskInput" placeholder="What needs to be done?" autocomplete="off" />
+      <button class="btn-add" id="addBtn" onclick="addTask()">Add Task</button>
+    </div>
+
+    <!-- ===== TOOLBAR: Filters + Count ===== -->
+    <div class="toolbar">
+      <div class="filters">
+        <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">All</button>
+        <button class="filter-btn" data-filter="pending" onclick="setFilter('pending', this)">Pending</button>
+        <button class="filter-btn" data-filter="completed" onclick="setFilter('completed', this)">Completed</button>
+      </div>
+      <div class="task-count" id="taskCount"></div>
+    </div>
+
+    <!-- ===== TASK LIST ===== -->
+    <div class="task-list" id="taskList">
+      <div class="empty-state">
+        <div class="icon">📋</div>
+        <p>Loading tasks...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // =====================================================================
+    // API CONFIG — Points to the Express backend deployed on Render
+    // Change the data-api attribute on #appRoot (or set VITE_API_URL env)
+    // =====================================================================
+    const API_BASE = document.getElementById('appRoot').dataset.api.replace(/\/$/, '');
+    const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
+    // =====================================================================
+    // STATE
+    // =====================================================================
+    let allTasks = [];
+    let currentFilter = 'all';
+    let tempIdCounter = -1;
+
+    // DOM references
+    const taskInput = document.getElementById('taskInput');
+    const taskList  = document.getElementById('taskList');
+    const addBtn    = document.getElementById('addBtn');
+
+    // =====================================================================
+    // TOAST — brief notification
+    // =====================================================================
+    let toastTimer = null;
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // =====================================================================
+    // FETCH TASKS — GET /api/tasks
+    // =====================================================================
+    async function getTasks() {
+      try {
+        const res = await fetch(`${API_BASE}/api/tasks`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+        allTasks = await res.json();
+        renderTasks();
+      } catch (err) {
+        console.error('Fetch error:', err);
+        showToast('⚠️ Could not load tasks — check console');
+        allTasks = [];
+        renderTasks();
+      }
+    }
+
+    // =====================================================================
+    // ADD TASK — Optimistic UI + POST to Supabase
+    // =====================================================================
+    async function addTask() {
+      const text = taskInput.value.trim();
+      if (!text) { taskInput.focus(); return; }
+
+      // 1) Instant UI update
+      const tempId = tempIdCounter--;
+      const optimistic = { id: tempId, task: text, is_done: false, created_at: new Date().toISOString() };
+      allTasks.unshift(optimistic);
+      taskInput.value = '';
+      renderTasks();
+      showToast('✅ Task added!');
+
+      // 2) Sync to backend in background
+      try {
+        const res = await fetch(`${API_BASE}/api/tasks`, {
+          method: 'POST',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ task: text })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        // Replace temp with real record
+        if (data && data[0]) {
+          const idx = allTasks.findIndex(t => t.id === tempId);
+          if (idx !== -1) allTasks[idx] = data[0];
+          renderTasks();
+        }
+      } catch (err) {
+        console.error('Insert error:', err);
+        allTasks = allTasks.filter(t => t.id !== tempId);
+        renderTasks();
+        showToast('⚠️ Could not save task');
+      }
+    }
+
+    // =====================================================================
+    // UPDATE TASK — Optimistic toggle + PATCH to Supabase
+    // =====================================================================
+    async function updateTask(id, isDone) {
+      const task = allTasks.find(t => t.id === id);
+      if (!task) return;
+      const prev = task.is_done;
+      task.is_done = isDone;
+      renderTasks();
+      showToast(isDone ? '🎉 Task completed!' : '🔄 Task reopened');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/tasks/${id}`, {
+          method: 'PATCH',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ is_done: isDone })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        console.error('Update error:', err);
+        task.is_done = prev;
+        renderTasks();
+        showToast('⚠️ Could not update task');
+      }
+    }
+
+    // =====================================================================
+    // DELETE TASK — Optimistic remove + DELETE from Supabase
+    // =====================================================================
+    async function deleteTask(id) {
+      // Animate out
+      const card = document.querySelector(`[data-task-id="${id}"]`);
+      if (card) {
+        card.style.transform = 'translateX(40px)';
+        card.style.opacity = '0';
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      const removed = allTasks.find(t => t.id === id);
+      const idx = allTasks.indexOf(removed);
+      allTasks = allTasks.filter(t => t.id !== id);
+      renderTasks();
+      showToast('🗑️ Task deleted');
+
+      try {
+        const res = await fetch(`${API_BASE}/api/tasks/${id}`, {
+          method: 'DELETE'
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        console.error('Delete error:', err);
+        if (removed) { allTasks.splice(idx, 0, removed); renderTasks(); }
+        showToast('⚠️ Could not delete task');
+      }
+    }
+
+    // =====================================================================
+    // FILTER
+    // =====================================================================
+    function setFilter(filter, btn) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderTasks();
+    }
+
+    // =====================================================================
+    // RENDER TASKS
+    // =====================================================================
+    function renderTasks() {
+      let filtered = allTasks;
+      if (currentFilter === 'pending')   filtered = allTasks.filter(t => !t.is_done);
+      if (currentFilter === 'completed') filtered = allTasks.filter(t => t.is_done);
+
+      const total = allTasks.length;
+      const done  = allTasks.filter(t => t.is_done).length;
+      document.getElementById('taskCount').innerHTML = `<span>${done}</span> / ${total} completed`;
+
+      if (filtered.length === 0) {
+        taskList.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">📋</div>
+            <p>${currentFilter === 'all' ? 'No tasks yet — add one above!' : 'No ' + currentFilter + ' tasks.'}</p>
+          </div>`;
+        return;
+      }
+
+      taskList.innerHTML = filtered.map(t => {
+        const date = new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        return `
+          <div class="task-card ${t.is_done ? 'done' : ''}" data-task-id="${t.id}">
+            <input type="checkbox" class="task-check" ${t.is_done ? 'checked' : ''} onchange="updateTask(${t.id}, this.checked)" />
+            <span class="task-text">${escapeHTML(t.task)}</span>
+            <span class="task-date">${date}</span>
+            <button class="btn-delete" onclick="deleteTask(${t.id})">Delete</button>
+          </div>`;
+      }).join('');
+    }
+
+    // =====================================================================
+    // UTILITY
+    // =====================================================================
+    function escapeHTML(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    // Enter key to add
+    taskInput.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+
+    // Initial load
+    getTasks();
+  </script>
+</body>
+</html>

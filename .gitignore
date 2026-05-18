@@ -1,0 +1,15 @@
+# Dependencies
+backend/node_modules/
+
+# Environment files (NEVER commit these)
+.env
+backend/.env
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+*.suo
+*.user
